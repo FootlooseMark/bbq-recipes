@@ -20,8 +20,8 @@ input,select,textarea{width:100%;background:var(--chip);color:var(--tx);border:1
 .chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0 10px;scrollbar-width:none}
 .chip{flex:none;padding:6px 12px;border-radius:16px;background:var(--chip);color:#D9CEC4;font-size:13px;border:0}
 .chip.on{background:var(--ember);color:#17120F;font-weight:600}
-#list{flex:1;overflow-y:auto;scroll-snap-type:y proximity;padding:0 14px}#list::after{content:'';display:block;height:calc(32px + env(safe-area-inset-bottom))}
-.card{position:sticky;top:0;transform-origin:50% 0;will-change:transform;box-shadow:0 -12px 28px rgba(0,0,0,.75);height:calc(100% - 44px);margin-bottom:12px;scroll-snap-align:start;border-radius:20px;border:1px solid var(--line);background:#3A2A20 center/cover;overflow:hidden}
+#list{flex:1;overflow-y:auto;scroll-snap-type:y mandatory;scroll-padding-top:24px;padding:24px 14px 0}#list::after{content:'';display:block;height:calc(32px + env(safe-area-inset-bottom))}
+.card{position:relative;scroll-snap-stop:always;transform-origin:50% 0;will-change:transform;box-shadow:0 -12px 28px rgba(0,0,0,.75);height:calc(100% - 44px);margin-bottom:12px;scroll-snap-align:start;border-radius:20px;border:1.5px solid #6B4A35;background:#3A2A20 center/cover;overflow:hidden}
 .ov{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 14px;background:rgba(15,11,9,.45)}
 .ov h3{font-size:21px;margin-bottom:6px}
 .card::after{content:'';position:absolute;inset:0;background:#000;opacity:var(--d,0);pointer-events:none}
@@ -40,12 +40,13 @@ input,select,textarea{width:100%;background:var(--chip);color:var(--tx);border:1
 .tags span{background:var(--chip);border-radius:12px;padding:4px 10px;font-size:13px}
 .btn{display:block;text-align:center;background:var(--ember);color:#17120F;font-weight:600;border:0;border-radius:12px;padding:12px;margin-top:14px;text-decoration:none;font-size:16px;width:100%}
 .btn.g{background:var(--chip);color:var(--tx)}
+.vid{display:block;position:relative;border-radius:12px;overflow:hidden}.vid img{width:100%;display:block}.vid span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:48px;color:#fff;background:rgba(0,0,0,.25)}
 .row{display:flex;gap:10px}
 .x{background:0;border:0;color:var(--ember);font-size:17px;padding:6px 0}
 label{display:block;margin:14px 0 4px;color:var(--mu);font-size:13px}
 </style></head><body>
 <div id="app">
-<header><div class="top"><span class="brand"><svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#E8631A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 15a11 11 0 0 1 22 0z"/><circle cx="16" cy="3.5" r="1.3"/><path d="M8 17c0 4.5 3.5 7 8 7s8-2.5 8-7"/><path d="M11 23l-3 6M21 23l3 6M16 24v5"/></svg>Smokehouse Notes</span><button id="more" aria-label="Backup">&#8943;</button></div>
+<header><div class="top"><span class="brand"><img src="IMG_2037.png" alt="" width="42" height="42" style="border-radius:10px">Smokehouse Notes</span><button id="more" aria-label="Backup">&#8943;</button></div>
 <input id="q" type="search" placeholder="Search recipes, rubs, cuts"><div class="chips" id="chips"></div></header>
 <div id="list"></div>
 <button id="fab" aria-label="Add recipe">+</button>
@@ -56,6 +57,7 @@ T=['Main','Side','Rub/Sauce'],M=['Traeger','Blackstone','Grill','Stovetop','Oven
 let R=[],pf='All',q='',fv=false;
 const $=s=>document.querySelector(s),
 esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
+yt=u=>{const m=(u||'').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([\w-]{11})/);return m?m[1]:''},
 stars=r=>`<span class="st">★★★★★<b style="width:${r*20}%">★★★★★</b></span>`,
 opts=(a,v)=>a.map(x=>`<option${x==v?' selected':''}>${x}</option>`).join('');
 const db=new Promise((ok,no)=>{const r=indexedDB.open('smokehouse',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>ok(r.result);r.onerror=no});
@@ -65,18 +67,38 @@ function chips(){$('#chips').innerHTML=`<button class="chip${fv?' on':''}" data-
 function list(){
 const L=R.filter(r=>(pf=='All'||r.p==pf)&&(!fv||r.f)&&(!q||[r.n,r.i,r.s,r.p,r.m,r.t].join(' ').toLowerCase().includes(q)));
 $('#list').innerHTML=L.length?L.map(r=>`<div class="card" data-id="${r.id}" style="${r.img?`background-image:url(${r.img})`:''}"><button class="fav" aria-label="Favorite">${r.f?'♥':'♡'}</button><div class="ov"><h3>${esc(r.n)}</h3>${stars(r.r)} <span>${r.r?r.r.toFixed(1):''}</span></div></div>`).join(''):`<p class="empty">${R.length?'No matches.':'No recipes yet. Tap Add to save your first cook.'}</p>`;fx()}
-function fx(){const l=$('#list'),c=l.children;if(!c.length||!c[0].classList.contains('card'))return;const h=c[0].offsetHeight+12,s=l.scrollTop;[...c].forEach((e,i)=>{const p=Math.min(1,Math.max(0,(s-i*h)/h));e.style.transform=`scale(${1-p*.08})`;e.style.setProperty('--d',p*.55)})}
+function fx(){const l=$('#list'),c=l.children;if(!c.length||!c[0].classList.contains('card'))return;const h=c[0].offsetHeight+12,s=l.scrollTop;[...c].forEach((e,i)=>{const d=(s-i*h)/h;if(d<=0){e.style.transform='';e.style.setProperty('--d',0);return}const k=Math.min(d,3);e.style.transform=`translateY(${s-i*h-k*9}px) scale(${1-k*.035})`;e.style.setProperty('--d',Math.min(.75,k*.28))})}
 function sheet(h){const s=document.createElement('div');s.className='sheet';s.innerHTML=h;document.body.appendChild(s);s.querySelector('[data-x]')?.addEventListener('click',()=>s.remove());return s}
 function detail(id){const r=R.find(x=>x.id==id);if(!r)return;
 const s=sheet(`<button class="x" data-x>‹ Back</button><div class="hero" style="${r.img?`background-image:url(${r.img})`:''}"></div><h2>${esc(r.n)}</h2>${stars(r.r)} ${r.r?r.r.toFixed(1):''}
 <div class="tags">${[r.p,r.t,r.m,r.d,r.c].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>
 ${r.i?`<h4>Ingredients</h4><ul>${r.i.split('\n').filter(Boolean).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
 ${r.s?`<h4>Steps</h4><ol>${r.s.split('\n').filter(Boolean).map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`:''}
+${/^https?:\/\//i.test(r.v||'')?(yt(r.v)?`<h4>Video</h4><a class="vid" href="${esc(r.v)}" target="_blank" rel="noopener"><img src="https://img.youtube.com/vi/${yt(r.v)}/hqdefault.jpg" alt="Video thumbnail"><span>&#9654;</span></a>`:`<a class="btn g" href="${esc(r.v)}" target="_blank" rel="noopener">Watch video</a>`):''}
 ${r.k?`<h4>Comments</h4><p>${esc(r.k)}</p>`:''}
-${/^https?:\/\//i.test(r.v||'')?`<a class="btn" href="${esc(r.v)}" target="_blank" rel="noopener">Watch video</a>`:''}
-<div class="row"><button class="btn g" data-e>Edit</button><button class="btn g" data-d>Delete</button></div>`);
+<button class="btn" data-s>Share as photo</button><div class="row"><button class="btn g" data-e>Edit</button><button class="btn g" data-d>Delete</button></div>`);
+s.querySelector('[data-s]').onclick=()=>share(r);
 s.querySelector('[data-e]').onclick=()=>{s.remove();form(r)};
 s.querySelector('[data-d]').onclick=()=>{if(confirm('Delete this recipe?')){R=R.filter(x=>x.id!=id);save();list();s.remove()}}}
+async function share(r){
+const W=1080,P=56,tw=W-2*P,F='-apple-system,Helvetica,sans-serif',T='Rockwell,Georgia,serif';
+let im=null;if(r.img)im=await new Promise(o=>{const i=new Image();i.onload=()=>o(i);i.onerror=()=>o(null);i.src=r.img});
+const c=document.createElement('canvas'),x=c.getContext('2d');
+const wrap=(a,f,w)=>{x.font=f;const o=[];let l='';a.split(' ').forEach(k=>{const n=l?l+' '+k:k;if(l&&x.measureText(n).width>w){o.push(l);l=k}else l=n});o.push(l);return o};
+const items=(a,pf)=>String(a||'').split('\n').filter(k=>k.trim()).flatMap((k,n)=>wrap(k,'32px '+F,tw-30).map((l,i)=>(i?'      ':pf(n))+l));
+const tl=wrap(r.n,'bold 62px '+T,tw),ing=items(r.i,()=>'•  '),stp=items(r.s,n=>(n+1)+'.  '),tg=[r.p,r.t,r.m,r.d,r.c].filter(Boolean).join('  ·  '),ph=im?700:0;
+const pass=d=>{const t=(s,f,col,yy)=>{if(d){x.font=f;x.fillStyle=col;x.fillText(s,P,yy)}};
+if(d){x.fillStyle='#0F0B09';x.fillRect(0,0,W,c.height);if(im){x.save();x.beginPath();x.rect(0,0,W,ph);x.clip();const s=Math.max(W/im.width,ph/im.height);x.drawImage(im,(W-im.width*s)/2,(ph-im.height*s)/2,im.width*s,im.height*s);x.restore()}}
+let y=ph+P+50;tl.forEach(l=>{t(l,'bold 62px '+T,'#F3EDE6',y);y+=72});
+if(d){x.font='54px '+F;const sw=x.measureText('★★★★★').width;x.fillStyle='#4A3D34';x.fillText('★★★★★',P,y+10);x.save();x.beginPath();x.rect(P,y-60,sw*r.r/5,90);x.clip();x.fillStyle='#E8631A';x.fillText('★★★★★',P,y+10);x.restore();x.font='32px '+F;x.fillStyle='#D9CEC4';x.fillText(r.r?r.r.toFixed(1):'',P+sw+24,y+6)}
+y+=62;if(tg){t(tg,'30px '+F,'#A89C92',y);y+=50}
+if(ing.length){y+=30;t('INGREDIENTS','bold 26px '+F,'#E8631A',y);y+=48;ing.forEach(l=>{t(l,'32px '+F,'#F3EDE6',y);y+=46})}
+if(stp.length){y+=36;t('STEPS','bold 26px '+F,'#E8631A',y);y+=48;stp.forEach(l=>{t(l,'32px '+F,'#F3EDE6',y);y+=46})}
+y+=64;t('Smokehouse Notes','bold 30px '+T,'#E8631A',y);return y+50};
+const H=pass(false);c.width=W;c.height=H;pass(true);
+c.toBlob(b=>{const f=new File([b],(r.n||'recipe').replace(/[^\w ]+/g,'').trim()+'.png',{type:'image/png'}),u=URL.createObjectURL(b);
+const s=sheet(`<button class="x" data-x>‹ Back</button><h2>Share recipe</h2><img src="${u}" style="width:100%;border-radius:12px"><button class="btn" id="go">Share</button><p style="color:var(--mu);margin-top:10px;font-size:13px">Or press and hold the image to save it. Comments and the video link are not included.</p>`);
+s.querySelector('#go').onclick=async()=>{if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f]})}catch(e){}}else alert('Press and hold the image to save it.')}},'image/png')}
 function shrink(f){return new Promise(ok=>{const im=new Image(),u=URL.createObjectURL(f);im.onload=()=>{const s=Math.min(1,900/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',.75))};im.src=u})}
 function form(r={}){let rt=r.r||0,img=r.img||'';
 const s=sheet(`<button class="x" data-x>‹ Cancel</button><h2>${r.id?'Edit recipe':'New recipe'}</h2>
