@@ -1,0 +1,112 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0F0B09">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Smokehouse Notes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Smokehouse Notes</title>
+<style>
+:root{--bg:#0F0B09;--card:#241C17;--line:#3A2E26;--ember:#E8631A;--tx:#F3EDE6;--mu:#A89C92;--chip:#2E2520}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:var(--bg);color:var(--tx);font:15px/1.4 -apple-system,system-ui,sans-serif;overscroll-behavior:none}
+#app{height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+header{padding:10px 14px 0}
+.top{display:flex;align-items:center;justify-content:space-between;font-size:19px;font-weight:600;margin-bottom:8px}
+.top b{color:var(--ember);font-weight:600}
+.top button{background:0;border:0;color:var(--mu);font-size:24px}
+input,select,textarea{width:100%;background:var(--chip);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;font-size:16px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0 10px;scrollbar-width:none}
+.chip{flex:none;padding:6px 12px;border-radius:16px;background:var(--chip);color:#D9CEC4;font-size:13px;border:0}
+.chip.on{background:var(--ember);color:#17120F;font-weight:600}
+#list{flex:1;overflow-y:auto;scroll-snap-type:y mandatory;padding:0 14px}
+.card{position:relative;height:calc(100% - 44px);margin-bottom:12px;scroll-snap-align:start;scroll-snap-stop:always;border-radius:20px;border:1px solid var(--line);background:#3A2A20 center/cover;overflow:hidden}
+.ov{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 14px;background:rgba(15,11,9,.45)}
+.ov h3{font-size:21px;margin-bottom:6px}
+.fav{position:absolute;top:10px;right:12px;font-size:22px;background:rgba(15,11,9,.45);border:0;border-radius:50%;width:42px;height:42px;color:var(--tx)}
+.st{position:relative;display:inline-block;color:#6A5A4E;font-size:20px;line-height:1}
+.st b{position:absolute;left:0;top:0;overflow:hidden;white-space:nowrap;color:var(--ember);font-weight:400}
+.empty{color:var(--mu);text-align:center;padding:60px 20px}
+nav{display:flex;justify-content:space-around;border-top:1px solid var(--line);background:#1E1713;padding:8px 0 calc(8px + env(safe-area-inset-bottom))}
+nav button{background:0;border:0;color:var(--mu);font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:70px}
+nav i{font-style:normal;font-size:22px}
+nav .on{color:var(--ember)}
+.sheet{position:fixed;inset:0;background:var(--bg);overflow-y:auto;padding:calc(12px + env(safe-area-inset-top)) 16px 60px;z-index:5}
+.sheet h2{font-size:24px;margin:10px 0 6px}
+.sheet h4{margin:18px 0 6px;color:var(--mu);font-weight:500;font-size:13px}
+.sheet li{margin-left:20px;margin-bottom:4px}
+.sheet p{white-space:pre-wrap}
+.hero{height:240px;border-radius:16px;background:#3A2A20 center/cover}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tags span{background:var(--chip);border-radius:12px;padding:4px 10px;font-size:13px}
+.btn{display:block;text-align:center;background:var(--ember);color:#17120F;font-weight:600;border:0;border-radius:12px;padding:12px;margin-top:14px;text-decoration:none;font-size:16px;width:100%}
+.btn.g{background:var(--chip);color:var(--tx)}
+.row{display:flex;gap:10px}
+.x{background:0;border:0;color:var(--ember);font-size:17px;padding:6px 0}
+label{display:block;margin:14px 0 4px;color:var(--mu);font-size:13px}
+</style></head><body>
+<div id="app">
+<header><div class="top"><span><b>&#9832;</b> Smokehouse Notes</span><button id="more" aria-label="Backup">&#8943;</button></div>
+<input id="q" type="search" placeholder="Search recipes, rubs, cuts"><div class="chips" id="chips"></div></header>
+<div id="list"></div>
+<nav><button data-t="home" class="on"><i>&#8962;</i>Home</button><button data-t="add"><i>&#8853;</i>Add</button><button data-t="fav"><i>&#9825;</i>Favorites</button></nav>
+</div>
+<script>
+const P=['Beef','Pork','Chicken','Turkey','Lamb','Duck','Quail','Fish','Shellfish','Game','Sausage','Other'],
+T=['Main','Side','Rub/Sauce'],M=['Traeger','Blackstone','Grill','Stovetop','Oven'],D=['Rookie','Griller','Pitmaster'];
+let R=[],pf='All',q='',tab='home';
+const $=s=>document.querySelector(s),
+esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
+stars=r=>`<span class="st">★★★★★<b style="width:${r*20}%">★★★★★</b></span>`,
+opts=(a,v)=>a.map(x=>`<option${x==v?' selected':''}>${x}</option>`).join('');
+const db=new Promise((ok,no)=>{const r=indexedDB.open('smokehouse',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>ok(r.result);r.onerror=no});
+const load=async()=>{const d=await db;return new Promise(ok=>{const g=d.transaction('kv').objectStore('kv').get('r');g.onsuccess=()=>ok(g.result||[]);g.onerror=()=>ok([])})};
+const save=async()=>{const d=await db;d.transaction('kv','readwrite').objectStore('kv').put(R,'r')};
+function chips(){$('#chips').innerHTML=['All',...P].map(p=>`<button class="chip${p==pf?' on':''}" data-p="${p}">${p}</button>`).join('')}
+function list(){
+const L=R.filter(r=>(pf=='All'||r.p==pf)&&(tab!='fav'||r.f)&&(!q||[r.n,r.i,r.p,r.m,r.t].join(' ').toLowerCase().includes(q)));
+$('#list').innerHTML=L.length?L.map(r=>`<div class="card" data-id="${r.id}" style="${r.img?`background-image:url(${r.img})`:''}"><button class="fav" aria-label="Favorite">${r.f?'♥':'♡'}</button><div class="ov"><h3>${esc(r.n)}</h3>${stars(r.r)} <span>${r.r?r.r.toFixed(1):''}</span></div></div>`).join(''):`<p class="empty">${R.length?'No matches.':'No recipes yet. Tap Add to save your first cook.'}</p>`}
+function sheet(h){const s=document.createElement('div');s.className='sheet';s.innerHTML=h;document.body.appendChild(s);s.querySelector('[data-x]')?.addEventListener('click',()=>s.remove());return s}
+function detail(id){const r=R.find(x=>x.id==id);if(!r)return;
+const s=sheet(`<button class="x" data-x>‹ Back</button><div class="hero" style="${r.img?`background-image:url(${r.img})`:''}"></div><h2>${esc(r.n)}</h2>${stars(r.r)} ${r.r?r.r.toFixed(1):''}
+<div class="tags">${[r.p,r.t,r.m,r.d,r.c].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>
+${r.i?`<h4>Ingredients</h4><ul>${r.i.split('\n').filter(Boolean).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
+${r.k?`<h4>Comments</h4><p>${esc(r.k)}</p>`:''}
+${/^https?:\/\//i.test(r.v||'')?`<a class="btn" href="${esc(r.v)}" target="_blank" rel="noopener">Watch video</a>`:''}
+<div class="row"><button class="btn g" data-e>Edit</button><button class="btn g" data-d>Delete</button></div>`);
+s.querySelector('[data-e]').onclick=()=>{s.remove();form(r)};
+s.querySelector('[data-d]').onclick=()=>{if(confirm('Delete this recipe?')){R=R.filter(x=>x.id!=id);save();list();s.remove()}}}
+function shrink(f){return new Promise(ok=>{const im=new Image(),u=URL.createObjectURL(f);im.onload=()=>{const s=Math.min(1,900/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',.75))};im.src=u})}
+function form(r={}){let rt=r.r||0,img=r.img||'';
+const s=sheet(`<button class="x" data-x>‹ Cancel</button><h2>${r.id?'Edit recipe':'New recipe'}</h2>
+<label>Photo</label><input type="file" id="fi" accept="image/*">
+<label>Name</label><input id="n" value="${esc(r.n)}" placeholder="Reverse sear ribeye">
+<label>Rating (tap a star; tap the left half for a half star; tap again to clear)</label><div class="st" id="rs" style="font-size:36px">★★★★★<b style="width:${rt*20}%">★★★★★</b></div>
+<label>Protein</label><select id="p">${opts(P,r.p)}</select><label>Type</label><select id="t">${opts(T,r.t)}</select>
+<label>Cooked on</label><select id="m">${opts(M,r.m)}</select><label>Difficulty</label><select id="d">${opts(D,r.d)}</select>
+<label>Cook time</label><input id="c" value="${esc(r.c)}" placeholder="1h 15m">
+<label>Ingredients (one per line)</label><textarea id="i" rows="6">${esc(r.i)}</textarea>
+<label>Comments</label><textarea id="k" rows="4">${esc(r.k)}</textarea>
+<label>Video link (optional)</label><input id="v" type="url" value="${esc(r.v)}" placeholder="https://youtube.com/...">
+<button class="btn" id="sv">Save recipe</button>`);
+s.querySelector('#fi').onchange=async e=>{if(e.target.files[0])img=await shrink(e.target.files[0])};
+s.querySelector('#rs').onclick=e=>{const b=e.currentTarget.getBoundingClientRect(),n=Math.min(5,Math.max(.5,Math.ceil((e.clientX-b.left)/b.width*10)/2));rt=n==rt?0:n;e.currentTarget.querySelector('b').style.width=rt*20+'%'};
+s.querySelector('#sv').onclick=()=>{const g=i=>s.querySelector('#'+i).value.trim(),n=g('n');if(!n){alert('Enter a name');return}
+const o={id:r.id||Date.now(),n,p:g('p'),t:g('t'),m:g('m'),d:g('d'),c:g('c'),i:g('i'),k:g('k'),v:g('v'),r:rt,f:r.f||false,img};
+R=r.id?R.map(x=>x.id==r.id?o:x):[o,...R];save();list();s.remove()}}
+async function exp(){const b=new Blob([JSON.stringify(R)],{type:'application/json'}),f=new File([b],'smokehouse-backup.json',{type:'application/json'});
+if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f]})}catch(e){}return}
+const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=f.name;a.click()}
+$('#more').onclick=()=>{const s=sheet(`<button class="x" data-x>‹ Back</button><h2>Backup</h2><p>Recipes live on this device. Export a backup after adding recipes.</p><button class="btn" id="ex">Export backup</button><label>Import backup (replaces current recipes)</label><input type="file" id="im" accept=".json,application/json">`);
+s.querySelector('#ex').onclick=exp;
+s.querySelector('#im').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text());if(!Array.isArray(d)||d.some(x=>!x.n))throw 0;if(confirm('Replace current recipes with '+d.length+' from the backup?')){R=d;save();list();s.remove()}}catch(x){alert('That file is not a valid backup.')}}};
+$('#q').oninput=e=>{q=e.target.value.toLowerCase();list()};
+$('#chips').onclick=e=>{const p=e.target.dataset.p;if(p){pf=p;chips();list()}};
+$('#list').onclick=e=>{const c=e.target.closest('.card');if(!c)return;const id=c.dataset.id;
+if(e.target.classList.contains('fav')){const r=R.find(x=>x.id==id);r.f=!r.f;save();list()}else detail(id)};
+document.querySelector('nav').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+if(b.dataset.t=='add'){form();return}tab=b.dataset.t;document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x==b));list()};
+load().then(d=>{R=d;chips();list()});
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+</script></body></html>
