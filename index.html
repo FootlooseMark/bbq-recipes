@@ -20,10 +20,11 @@ input,select,textarea{width:100%;background:var(--chip);color:var(--tx);border:1
 .chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0 10px;scrollbar-width:none}
 .chip{flex:none;padding:6px 12px;border-radius:16px;background:var(--chip);color:#D9CEC4;font-size:13px;border:0}
 .chip.on{background:var(--ember);color:#17120F;font-weight:600}
-#list{flex:1;overflow-y:auto;scroll-snap-type:y mandatory;scroll-padding-top:24px;padding:24px 14px 0}#list::after{content:'';display:block;height:calc(32px + env(safe-area-inset-bottom))}
-.card{position:relative;scroll-snap-stop:always;transform-origin:50% 0;will-change:transform;box-shadow:0 -12px 28px rgba(0,0,0,.75);height:calc(100% - 44px);margin-bottom:12px;scroll-snap-align:start;border-radius:20px;border:1.5px solid #6B4A35;background:#3A2A20 center/cover;overflow:hidden}
+#list{position:relative;flex:1;overflow-y:auto;scroll-snap-type:y mandatory;scroll-padding-top:24px;padding:24px 14px 0}#list::after{content:'';display:block;height:calc(32px + env(safe-area-inset-bottom))}
+.card{position:relative;transform-origin:50% 0;will-change:transform;box-shadow:0 -12px 28px rgba(0,0,0,.75);height:calc(100% - 44px);margin-bottom:12px;border-radius:20px;border:1.5px solid #6B4A35;background:#3A2A20 center/cover;overflow:hidden}
 .ov{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 14px;background:rgba(15,11,9,.45)}
 .ov h3{font-size:21px;margin-bottom:6px}
+.sp{position:absolute;left:0;width:1px;height:1px;scroll-snap-align:start;scroll-snap-stop:always}
 .card::after{content:'';position:absolute;inset:0;background:#000;opacity:var(--d,0);pointer-events:none}
 .fav{position:absolute;top:10px;right:12px;font-size:22px;background:rgba(15,11,9,.45);border:0;border-radius:50%;width:42px;height:42px;color:var(--tx)}
 .st{position:relative;display:inline-block;color:#6A5A4E;font-size:20px;line-height:1}
@@ -66,8 +67,9 @@ const save=async()=>{const d=await db;d.transaction('kv','readwrite').objectStor
 function chips(){$('#chips').innerHTML=`<button class="chip${fv?' on':''}" data-p="__f">♥ Favorites</button>`+['All',...P].map(p=>`<button class="chip${p==pf&&!(p=='All'&&fv)?' on':''}" data-p="${p}">${p}</button>`).join('')}
 function list(){
 const L=R.filter(r=>(pf=='All'||r.p==pf)&&(!fv||r.f)&&(!q||[r.n,r.i,r.s,r.p,r.m,r.t].join(' ').toLowerCase().includes(q)));
-$('#list').innerHTML=L.length?L.map(r=>`<div class="card" data-id="${r.id}" style="${r.img?`background-image:url(${r.img})`:''}"><button class="fav" aria-label="Favorite">${r.f?'♥':'♡'}</button><div class="ov"><h3>${esc(r.n)}</h3>${stars(r.r)} <span>${r.r?r.r.toFixed(1):''}</span></div></div>`).join(''):`<p class="empty">${R.length?'No matches.':'No recipes yet. Tap Add to save your first cook.'}</p>`;fx()}
-function fx(){const l=$('#list'),c=l.children;if(!c.length||!c[0].classList.contains('card'))return;const h=c[0].offsetHeight+12,s=l.scrollTop;[...c].forEach((e,i)=>{const d=(s-i*h)/h;if(d<=0){e.style.transform='';e.style.setProperty('--d',0);return}const k=Math.min(d,3);e.style.transform=`translateY(${s-i*h-k*9}px) scale(${1-k*.035})`;e.style.setProperty('--d',Math.min(.75,k*.28))})}
+$('#list').innerHTML=L.length?L.map(r=>`<div class="card" data-id="${r.id}" style="${r.img?`background-image:url(${r.img})`:''}"><button class="fav" aria-label="Favorite">${r.f?'♥':'♡'}</button><div class="ov"><h3>${esc(r.n)}</h3>${stars(r.r)} <span>${r.r?r.r.toFixed(1):''}</span></div></div>`).join(''):`<p class="empty">${R.length?'No matches.':'No recipes yet. Tap Add to save your first cook.'}</p>`;snaps();fx()}
+function snaps(){const l=$('#list');l.querySelectorAll('.card').forEach(c=>{const m=document.createElement('i');m.className='sp';m.style.top=c.offsetTop+'px';l.appendChild(m)})}
+function fx(){const l=$('#list'),c=l.querySelectorAll('.card');if(!c.length)return;const h=c[0].offsetHeight+12,s=l.scrollTop;[...c].forEach((e,i)=>{const d=(s-i*h)/h;if(d<=0){e.style.transform='';e.style.setProperty('--d',0);return}const k=Math.min(d,3);e.style.transform=`translateY(${s-i*h-k*9}px) scale(${1-k*.035})`;e.style.setProperty('--d',Math.min(.75,k*.28))})}
 function sheet(h){const s=document.createElement('div');s.className='sheet';s.innerHTML=h;document.body.appendChild(s);s.querySelector('[data-x]')?.addEventListener('click',()=>s.remove());return s}
 function detail(id){const r=R.find(x=>x.id==id);if(!r)return;
 const s=sheet(`<button class="x" data-x>‹ Back</button><div class="hero" style="${r.img?`background-image:url(${r.img})`:''}"></div><h2>${esc(r.n)}</h2>${stars(r.r)} ${r.r?r.r.toFixed(1):''}
@@ -130,6 +132,7 @@ $('#list').onclick=e=>{const c=e.target.closest('.card');if(!c)return;const id=c
 if(e.target.classList.contains('fav')){const r=R.find(x=>x.id==id);r.f=!r.f;save();list()}else detail(id)};
 $('#fab').onclick=()=>form();
 $('#list').addEventListener('scroll',fx,{passive:true});
+addEventListener('resize',list);
 load().then(d=>{R=d;chips();list()});
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
 </script></body></html>
